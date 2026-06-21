@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Mes Parcelles</title>
+<meta name="description" content="Gestion de parcelles de bois et terrains, carte cadastrale, carnet de terrain, prospection" />
+<meta name="theme-color" content="#0f6e56" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Parcelles" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <span class="app-title"><i class="ti ti-trees" aria-hidden="true"></i> Mes Parcelles</span>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="map"><i class="ti ti-map" aria-hidden="true"></i><span>Carte</span></button>
+  <button class="tab-btn" data-tab="list"><i class="ti ti-list" aria-hidden="true"></i><span>Mes parcelles</span></button>
+  <button class="tab-btn" data-tab="prospect"><i class="ti ti-target-arrow" aria-hidden="true"></i><span>Prospection</span></button>
+  <button class="tab-btn" data-tab="backup"><i class="ti ti-database" aria-hidden="true"></i><span>Sauvegarde</span></button>
+</nav>
+
+<main id="app">
+
+  <section id="tab-map" class="tab-panel">
+    <div class="search-row">
+      <input id="search-input" type="text" placeholder="Rechercher une commune ou adresse..." />
+      <button id="search-btn" class="icon-btn" aria-label="Rechercher"><i class="ti ti-search" aria-hidden="true"></i></button>
+    </div>
+    <div class="ctrl-bar">
+      <button id="btn-ign" class="chip active">Plan IGN</button>
+      <button id="btn-sat" class="chip">Satellite</button>
+      <button id="btn-cadastre" class="chip active">Cadastre</button>
+      <button id="btn-locate" class="chip"><i class="ti ti-current-location" aria-hidden="true"></i> Me localiser</button>
+      <button id="btn-draw" class="chip"><i class="ti ti-pencil" aria-hidden="true"></i> Dessiner une parcelle</button>
+    </div>
+    <div id="draw-bar" class="draw-bar hidden">
+      <span id="draw-hint"><i class="ti ti-info-circle" aria-hidden="true"></i> Touche la carte pour placer les points du contour.</span>
+      <div class="draw-actions">
+        <button id="draw-undo" class="chip" aria-label="Annuler dernier point"><i class="ti ti-arrow-back-up" aria-hidden="true"></i></button>
+        <button id="draw-finish" class="chip active">Terminer</button>
+        <button id="draw-cancel" class="chip danger">Annuler</button>
+      </div>
+    </div>
+    <div id="map-wrap"><div id="map"></div></div>
+    <div id="offline-banner" class="offline-banner hidden">
+      <i class="ti ti-wifi-off" aria-hidden="true"></i> Hors connexion — seules les zones déjà consultées s'affichent.
+    </div>
+
+    <div id="parcel-card" class="card hidden">
+      <div class="card-header">
+        <p class="card-title" id="parcel-title">Parcelle</p>
+        <i class="ti ti-x icon-btn-sm" id="parcel-close" aria-hidden="true"></i>
+      </div>
+      <div id="parcel-body"></div>
+      <div class="btn-row">
+        <button id="parcel-add" class="btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Mes parcelles</button>
+        <button id="parcel-prospect" class="btn-secondary"><i class="ti ti-target-arrow" aria-hidden="true"></i> Prospection</button>
+      </div>
+    </div>
+
+    <div id="drawn-card" class="card hidden">
+      <div class="card-header">
+        <p class="card-title"><i class="ti ti-pencil" aria-hidden="true"></i> Contour dessiné</p>
+        <i class="ti ti-x icon-btn-sm" id="drawn-close" aria-hidden="true"></i>
+      </div>
+      <div class="info-row"><span>Surface calculée</span><span id="drawn-surface">-</span></div>
+      <div class="info-row"><span>Points placés</span><span id="drawn-points">-</span></div>
+      <p class="hint-text">Cette parcelle n'existe pas au cadastre officiel — son contour est approximatif (tracé à la main).</p>
+      <div class="btn-row">
+        <button id="drawn-add" class="btn-primary"><i class="ti ti-plus" aria-hidden="true"></i> Mes parcelles</button>
+        <button id="drawn-prospect" class="btn-secondary"><i class="ti ti-target-arrow" aria-hidden="true"></i> Prospection</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-list" class="tab-panel hidden">
+    <div class="stat-grid">
+      <div class="stat-card"><p class="lbl">Parcelles</p><p class="val" id="stat-count">0</p></div>
+      <div class="stat-card"><p class="lbl">Surface totale</p><p class="val" id="stat-surface">0 ha</p></div>
+      <div class="stat-card"><p class="lbl">Communes</p><p class="val" id="stat-communes">0</p></div>
+    </div>
+    <div id="plist-container"></div>
+  </section>
+
+  <section id="tab-prospect" class="tab-panel hidden">
+    <div class="stat-grid">
+      <div class="stat-card"><p class="lbl">En cours</p><p class="val" id="pstat-count">0</p></div>
+      <div class="stat-card"><p class="lbl">Surface visée</p><p class="val" id="pstat-surface">0 ha</p></div>
+      <div class="stat-card"><p class="lbl">En négociation</p><p class="val" id="pstat-nego">0</p></div>
+    </div>
+    <div id="prospect-container"></div>
+  </section>
+
+  <section id="tab-detail" class="tab-panel hidden">
+    <button id="detail-back" class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true"></i> Retour</button>
+    <div class="card">
+      <div id="d-origin-badge" class="origin-badge hidden"><i class="ti ti-pencil" aria-hidden="true"></i> Contour dessiné à la main</div>
+      <div class="field">
+        <label class="field-label">Nom de la parcelle</label>
+        <input type="text" id="d-name" placeholder="ex. Le bois du haut" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Type</label>
+          <select id="d-type">
+            <option value="bois">Bois / forêt</option>
+            <option value="terrain">Terrain agricole</option>
+            <option value="friche">Friche</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Essence principale</label>
+          <input type="text" id="d-essence" placeholder="ex. chêne, sapin..." />
+        </div>
+      </div>
+      <div class="info-block">
+        <div class="info-row"><span>Commune</span><span id="d-commune">-</span></div>
+        <div class="info-row"><span>Section / numéro</span><span id="d-section">-</span></div>
+        <div class="info-row"><span>Surface cadastrale</span><span id="d-surface">-</span></div>
+        <div class="info-row"><span>Réf. cadastrale</span><span id="d-ref">-</span></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Notes générales</label>
+        <textarea id="d-notes" rows="3" placeholder="Accès, voisinage, particularités..."></textarea>
+      </div>
+      <button id="d-save" class="btn-primary full"><i class="ti ti-check" aria-hidden="true"></i> Enregistrer la fiche</button>
+
+      <div class="notebook">
+        <p class="section-title">Carnet de terrain</p>
+        <div class="note-input-row">
+          <input type="text" id="d-note-input" placeholder="ex. coupe réalisée, état sanitaire..." />
+          <button id="d-note-add" class="icon-btn" aria-label="Ajouter"><i class="ti ti-plus" aria-hidden="true"></i></button>
+        </div>
+        <div id="d-notes-list"></div>
+      </div>
+
+      <button id="d-delete" class="btn-danger full"><i class="ti ti-trash" aria-hidden="true"></i> Supprimer cette parcelle</button>
+    </div>
+  </section>
+
+  <section id="tab-pdetail" class="tab-panel hidden">
+    <button id="pdetail-back" class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true"></i> Retour</button>
+    <div class="card">
+      <div id="p-origin-badge" class="origin-badge hidden"><i class="ti ti-pencil" aria-hidden="true"></i> Contour dessiné à la main</div>
+      <div class="field">
+        <label class="field-label">Nom de la parcelle</label>
+        <input type="text" id="p-name" placeholder="ex. Bois derrière chez Martin" />
+      </div>
+      <div class="field">
+        <label class="field-label">Statut</label>
+        <div class="status-pills" id="p-status-pills">
+          <button type="button" class="status-pill" data-status="reperee">Repérée</button>
+          <button type="button" class="status-pill" data-status="contact">Contact pris</button>
+          <button type="button" class="status-pill" data-status="negociation">Négociation</button>
+          <button type="button" class="status-pill" data-status="conclue">Conclue / abandonnée</button>
+        </div>
+      </div>
+      <div class="info-block">
+        <div class="info-row"><span>Commune</span><span id="p-commune">-</span></div>
+        <div class="info-row"><span>Section / numéro</span><span id="p-section">-</span></div>
+        <div class="info-row"><span>Surface cadastrale</span><span id="p-surface">-</span></div>
+        <div class="info-row"><span>Réf. cadastrale</span><span id="p-ref">-</span></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Notes (propriétaire, prix évoqué, contexte...)</label>
+        <textarea id="p-notes" rows="3" placeholder="Coordonnées, infos utiles..."></textarea>
+      </div>
+      <button id="p-save" class="btn-primary full"><i class="ti ti-check" aria-hidden="true"></i> Enregistrer la fiche</button>
+
+      <div class="notebook">
+        <p class="section-title">Historique des échanges</p>
+        <div class="note-input-row">
+          <input type="text" id="p-note-input" placeholder="ex. appel téléphonique, visite..." />
+          <button id="p-note-add" class="icon-btn" aria-label="Ajouter"><i class="ti ti-plus" aria-hidden="true"></i></button>
+        </div>
+        <div id="p-notes-list"></div>
+      </div>
+
+      <button id="p-promote" class="btn-primary full" style="margin-top:16px;"><i class="ti ti-arrow-up" aria-hidden="true"></i> Marquer comme acquise</button>
+      <button id="p-delete" class="btn-danger full"><i class="ti ti-trash" aria-hidden="true"></i> Supprimer ce repérage</button>
+    </div>
+  </section>
+
+  <section id="tab-backup" class="tab-panel hidden">
+    <div class="card">
+      <p class="section-title"><i class="ti ti-download" aria-hidden="true"></i> Exporter mes données</p>
+      <p class="hint-text">
+        Crée un fichier de sauvegarde contenant toutes tes parcelles et tes
+        prospections. Garde-le précieusement (mail à toi-même, cloud, clé USB...) :
+        c'est ta seule copie en dehors de ce téléphone.
+      </p>
+      <button id="export-btn" class="btn-primary full"><i class="ti ti-file-download" aria-hidden="true"></i> Télécharger le fichier de sauvegarde</button>
+      <p class="backup-meta" id="backup-summary">Chargement…</p>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <p class="section-title"><i class="ti ti-upload" aria-hidden="true"></i> Charger une sauvegarde</p>
+      <p class="hint-text">
+        Restaure des parcelles depuis un fichier exporté précédemment (depuis
+        ce téléphone ou un autre). Les fiches existantes ayant le même
+        identifiant seront mises à jour, les autres ajoutées.
+      </p>
+      <button id="import-btn" class="btn-secondary full"><i class="ti ti-file-upload" aria-hidden="true"></i> Choisir un fichier à importer</button>
+      <input type="file" id="import-file" accept="application/json" class="hidden" />
+      <p class="import-status hidden" id="import-status"></p>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <p class="section-title" style="color:var(--danger);"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Zone sensible</p>
+      <p class="hint-text">
+        Supprime définitivement toutes les données enregistrées sur cet
+        appareil (parcelles et prospections). Pense à exporter une sauvegarde
+        avant si besoin — cette action est irréversible.
+      </p>
+      <button id="wipe-btn" class="btn-danger full"><i class="ti ti-trash" aria-hidden="true"></i> Tout effacer sur cet appareil</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="install-banner" class="install-banner hidden">
+  <span><i class="ti ti-download" aria-hidden="true"></i> Installer l'application sur cet appareil</span>
+  <button id="install-btn">Installer</button>
+  <i class="ti ti-x icon-btn-sm" id="install-dismiss" aria-hidden="true"></i>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
